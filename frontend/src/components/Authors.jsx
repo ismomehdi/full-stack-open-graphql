@@ -65,10 +65,16 @@ const Authors = (props) => {
         <h3>Set birthyear</h3>
         <div>
           name
-          <input
+          <select
             value={authorName}
             onChange={({ target }) => setAuthorName(target.value)}
-          />
+          >
+            {result.data.allAuthors.map((a) => (
+              <option key={a.name} value={a.name}>
+                {a.name}
+              </option>
+            ))}
+          </select>
         </div>
         <div>
           birth year
