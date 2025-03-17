@@ -101,8 +101,15 @@ const typeDefs = `
 `;
 
 const resolvers = {
+  Author: {
+    bookCount: async (root) => {
+      return root.bookCount || 0;
+    },
+  },
   Query: {
-    bookCount: async () => await Book.countDocuments(),
+    bookCount: async () => {
+      return await Book.countDocuments();
+    },
     authorCount: async () => await Author.countDocuments(),
     allBooks: async (root, args) => {
       if (args.genre)
@@ -112,7 +119,9 @@ const resolvers = {
 
       return await Book.find({}).populate("author");
     },
-    allAuthors: async () => await Author.find({}),
+    allAuthors: async () => {
+      return await Author.find({});
+    },
     me: (root, args, context) => {
       return context.currentUser;
     },
@@ -133,7 +142,10 @@ const resolvers = {
         let author = await Author.findOne({ name: args.author });
 
         if (!author) {
-          author = new Author({ name: args.author });
+          author = new Author({ name: args.author, bookCount: 1 });
+          await author.save();
+        } else {
+          author.bookCount += 1;
           await author.save();
         }
 
