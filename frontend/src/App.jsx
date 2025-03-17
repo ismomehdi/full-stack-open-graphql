@@ -1,4 +1,4 @@
-import { gql, useSubscription } from "@apollo/client";
+import { gql, useApolloClient, useSubscription } from "@apollo/client";
 import { useState } from "react";
 import Authors from "./components/Authors";
 import Books from "./components/Books";
@@ -13,13 +13,49 @@ export const BOOK_ADDED = gql`
   }
 `;
 
+const ALL_BOOKS = gql`
+  query AllBooks {
+    allBooks {
+      author {
+        name
+      }
+      published
+      title
+    }
+  }
+`;
+
+export const updateCache = (cache, query, addedBook) => {
+  const uniqByTitle = (a) => {
+    let seen = new Set();
+    return a.filter((item) => {
+      let k = item.title;
+      return seen.has(k) ? false : seen.add(k);
+    });
+  };
+
+  cache.updateQuery(query, (data) => {
+    if (!data) {
+      return {
+        allBooks: [addedBook],
+      };
+    }
+    return {
+      allBooks: uniqByTitle(data.allBooks.concat(addedBook)),
+    };
+  });
+};
+
 const App = () => {
   const [page, setPage] = useState("authors");
   const [token, setToken] = useState(null);
+  const client = useApolloClient();
 
   useSubscription(BOOK_ADDED, {
     onData: ({ data }) => {
+      const addedBook = data.data.bookAdded;
       window.alert(`Book added: ${data.data.bookAdded.title}`);
+      updateCache(client.cache, { query: ALL_BOOKS }, addedBook);
     },
   });
 
