@@ -1,9 +1,11 @@
-// const { WebSocketServer } = require("ws");
-// const { useServer } = require("graphql-ws/lib/use/ws");
+const { WebSocketServer } = require("ws");
+const { useServer } = require("graphql-ws/lib/use/ws");
 
 const { ApolloServer } = require("@apollo/server");
 const { GraphQLError } = require("graphql");
-const { startStandaloneServer } = require("@apollo/server/standalone");
+
+const { PubSub } = require("graphql-subscriptions");
+const pubsub = new PubSub();
 
 const { expressMiddleware } = require("@apollo/server/express4");
 const {
@@ -41,6 +43,10 @@ const typeDefs = `
     favoriteGenre: String!
     id: ID!
   }
+
+  type Subscription {
+    bookAdded: Book!
+  }   
 
   type Token {
     value: String!
@@ -133,6 +139,8 @@ const resolvers = {
 
         const book = new Book({ ...args, author: author._id });
         const savedBook = await book.save();
+
+        pubsub.publish("BOOK_ADDED", { bookAdded: savedBook });
         return await savedBook.populate("author");
       } catch (err) {
         throw new GraphQLError("Adding a book failed", {
@@ -209,14 +217,39 @@ const resolvers = {
       return { value: jwt.sign(userForToken, process.env.JWT_SECRET) };
     },
   },
+  Subscription: {
+    bookAdded: {
+      subscribe: () => pubsub.asyncIterator("BOOK_ADDED"),
+    },
+  },
 };
 
 const start = async () => {
   const app = express();
   const httpServer = http.createServer(app);
+
+  const wsServer = new WebSocketServer({
+    server: httpServer,
+    path: "/",
+  });
+
+  const schema = makeExecutableSchema({ typeDefs, resolvers });
+  const serverCleanup = useServer({ schema }, wsServer);
+
   const server = new ApolloServer({
     schema: makeExecutableSchema({ typeDefs, resolvers }),
-    plugins: [ApolloServerPluginDrainHttpServer({ httpServer })],
+    plugins: [
+      ApolloServerPluginDrainHttpServer({ httpServer }),
+      {
+        async serverWillStart() {
+          return {
+            async drainServer() {
+              await serverCleanup.dispose();
+            },
+          };
+        },
+      },
+    ],
   });
   await server.start();
   app.use(
