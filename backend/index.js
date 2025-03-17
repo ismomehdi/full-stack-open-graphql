@@ -1,5 +1,5 @@
-const { v1: uuid } = require("uuid");
 const { ApolloServer } = require("@apollo/server");
+const { GraphQLError } = require("graphql");
 const { startStandaloneServer } = require("@apollo/server/standalone");
 
 const mongoose = require("mongoose");
@@ -71,25 +71,45 @@ const resolvers = {
   },
   Mutation: {
     addBook: async (root, args) => {
-      const author = await Author.findOne({ name: args.author });
+      try {
+        const author = await Author.findOne({ name: args.author });
 
-      if (!author) {
-        const newAuthor = new Author({ name: args.author });
-        await newAuthor.save();
+        if (!author) {
+          const newAuthor = new Author({ name: args.author });
+          await newAuthor.save();
+        }
+
+        const book = new Book({ ...args, author: author._id });
+        return await book.save();
+      } catch (err) {
+        throw new GraphQLError("Adding a book failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.name,
+            err,
+          },
+        });
       }
-
-      const book = new Book({ ...args, author: author._id });
-      return await book.save();
     },
     editAuthor: async (root, args) => {
-      const author = await Author.findOne({ name: args.author });
-      if (!author) return null;
+      try {
+        const author = await Author.findOne({ name: args.author });
+        if (!author) return null;
 
-      const updatedAuthor = { ...author, born: args.setBornTo };
+        const updatedAuthor = { ...author, born: args.setBornTo };
 
-      return await Author.findByIdAndUpdate(author._id, updatedAuthor, {
-        new: true,
-      });
+        return await Author.findByIdAndUpdate(author._id, updatedAuthor, {
+          new: true,
+        });
+      } catch (err) {
+        throw new GraphQLError("Editing author failed", {
+          extensions: {
+            code: "BAD_USER_INPUT",
+            invalidArgs: args.name,
+            err,
+          },
+        });
+      }
     },
   },
 };
