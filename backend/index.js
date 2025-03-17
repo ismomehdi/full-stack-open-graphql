@@ -34,13 +34,13 @@ const typeDefs = `
     value: String!
   }
 
-	type Book {
-		title: String!
-		published: Int!
-		author: String!
-		id: ID!
-		genres: [String!]!
-	}
+  type Book {
+    title: String!
+    published: Int!
+    author: Author!
+    genres: [String!]!
+    id: ID!
+  }
 
 	type Author {
 		name: String!
@@ -86,17 +86,21 @@ const resolvers = {
   Query: {
     bookCount: async () => await Book.countDocuments(),
     authorCount: async () => await Author.countDocuments(),
-    allBooks: async (root, args) =>
-      await Book.find({
-        genres: { $in: args.genre },
-      }),
+    allBooks: async (root, args) => {
+      if (args.genre)
+        return await Book.find({
+          genres: { $in: args.genre },
+        }).populate("author");
+
+      return await Book.find({}).populate("author");
+    },
     allAuthors: async () => await Author.find({}),
     me: (root, args, context) => {
       return context.currentUser;
     },
   },
   Mutation: {
-    addBook: async (root, args) => {
+    addBook: async (root, args, context) => {
       try {
         const currentUser = context.currentUser;
 
@@ -115,7 +119,7 @@ const resolvers = {
           await newAuthor.save();
         }
 
-        const book = new Book({ ...args, author: author._id });
+        const book = new Book({ ...args, author: author });
         return await book.save();
       } catch (err) {
         throw new GraphQLError("Adding a book failed", {
