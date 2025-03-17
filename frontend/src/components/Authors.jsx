@@ -27,7 +27,9 @@ const Authors = (props) => {
     refetchQueries: [{ query: ALL_AUTHORS }],
   });
 
-  const [authorName, setAuthorName] = useState("");
+  const [authorName, setAuthorName] = useState(
+    result?.data?.allAuthors[0].name
+  );
   const [newBorn, setNewBorn] = useState(undefined);
   if (result.loading) {
     return <div>loading...</div>;
@@ -39,7 +41,9 @@ const Authors = (props) => {
 
   const handleSubmit = (event) => {
     event.preventDefault();
+    console.log({ authorName, newBorn });
     editAuthor({ variables: { name: authorName, setBornTo: Number(newBorn) } });
+    setNewBorn("");
   };
 
   return (

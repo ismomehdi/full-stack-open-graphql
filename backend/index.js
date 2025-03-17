@@ -119,8 +119,9 @@ const resolvers = {
           await author.save();
         }
 
-        const book = new Book({ ...args, author: author });
-        return await book.save();
+        const book = new Book({ ...args, author: author._id });
+        const savedBook = await book.save();
+        return await savedBook.populate("author");
       } catch (err) {
         throw new GraphQLError("Adding a book failed", {
           extensions: {
@@ -131,7 +132,7 @@ const resolvers = {
         });
       }
     },
-    editAuthor: async (root, args) => {
+    editAuthor: async (root, args, context) => {
       const currentUser = context.currentUser;
 
       if (!currentUser) {
@@ -143,14 +144,14 @@ const resolvers = {
       }
 
       try {
-        const author = await Author.findOne({ name: args.author });
+        const author = await Author.findOne({ name: args.name });
         if (!author) return null;
 
-        const updatedAuthor = { ...author, born: args.setBornTo };
-
-        return await Author.findByIdAndUpdate(author._id, updatedAuthor, {
-          new: true,
-        });
+        return await Author.findByIdAndUpdate(
+          author._id,
+          { $set: { born: args.setBornTo } },
+          { new: true }
+        );
       } catch (err) {
         throw new GraphQLError("Editing author failed", {
           extensions: {
